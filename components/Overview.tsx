@@ -1,18 +1,29 @@
 "use client";
 
-import { motion, useMotionValue, useTransform, animate } from "framer-motion";
+import { motion, useMotionValue, useTransform, animate, useReducedMotion } from "framer-motion";
 import { useEffect, useMemo } from "react";
 import { DashboardData, computeTotals, fmtUSD, STATUS_ORDER, STATUS_LABELS } from "../lib/seed";
 
 const AnimatedNumber = ({ value, format }: { value: number; format: (n: number) => string }) => {
-  const mv = useMotionValue(0);
+  const reduceMotion = useReducedMotion();
+  const mv = useMotionValue(value);
   const rounded = useTransform(mv, (latest) => format(latest));
   useEffect(() => {
+    if (reduceMotion) {
+      mv.set(value);
+      return;
+    }
     const controls = animate(mv, value, { duration: 1.1, ease: "easeOut" });
     return () => controls.stop();
-  }, [mv, value]);
+  }, [mv, value, reduceMotion]);
   return <motion.span>{rounded}</motion.span>;
 };
+
+// Returns a stable "skeleton" while the client hasn't hydrated yet, so we never
+// animate from seed data -> real data -> a different real value. SSR and first
+// hydration render the skeleton; after useDashboardData sets hydrated=true, the
+// real values mount and animate in exactly once.
+const SKELETON = "—";
 
 const StageBar = ({
   label,
@@ -53,7 +64,7 @@ const StageBar = ({
   );
 };
 
-export default function Overview({ data }: { data: DashboardData }) {
+export default function Overview({ data, hydrated }: { data: DashboardData; hydrated: boolean }) {
   const totals = useMemo(() => computeTotals(data.costs), [data.costs]);
 
   // progress by stage for todos
@@ -112,25 +123,25 @@ export default function Overview({ data }: { data: DashboardData }) {
           <div>
             <div className="text-[11px] uppercase tracking-wide text-steel-400">Low estimate</div>
             <div className="mt-1 text-2xl font-semibold text-moss-400">
-              <AnimatedNumber value={totals.filledLow} format={(n) => fmtUSD(n)} />
+              {hydrated ? <AnimatedNumber value={totals.filledLow} format={(n) => fmtUSD(n)} /> : SKELETON}
             </div>
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-steel-400">High estimate</div>
             <div className="mt-1 text-2xl font-semibold text-amber-300">
-              <AnimatedNumber value={totals.filledHigh} format={(n) => fmtUSD(n)} />
+              {hydrated ? <AnimatedNumber value={totals.filledHigh} format={(n) => fmtUSD(n)} /> : SKELETON}
             </div>
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-steel-400">Actual spent</div>
             <div className="mt-1 text-2xl font-semibold text-slate2-400">
-              <AnimatedNumber value={totals.actualTotal} format={(n) => fmtUSD(n)} />
+              {hydrated ? <AnimatedNumber value={totals.actualTotal} format={(n) => fmtUSD(n)} /> : SKELETON}
             </div>
           </div>
           <div>
             <div className="text-[11px] uppercase tracking-wide text-steel-400">TBD rows</div>
             <div className="mt-1 text-2xl font-semibold text-steel-200">
-              <AnimatedNumber value={tbdCount} format={(n) => `${Math.round(n)}`} />
+              {hydrated ? <AnimatedNumber value={tbdCount} format={(n) => `${Math.round(n)}`} /> : SKELETON}
             </div>
           </div>
         </div>
@@ -140,12 +151,18 @@ export default function Overview({ data }: { data: DashboardData }) {
           <div className="mb-2 flex items-baseline justify-between text-xs">
             <span className="text-steel-400">Spend position</span>
             <span className={variance > 0 ? "text-rust-400" : "text-moss-400"}>
-              {fmtUSD(variance)} {variance > 0 ? "over" : variance < 0 ? "under" : ""} midpoint
-              {variance !== 0 && (
-                <span className="ml-2 text-steel-400">
-                  ({variancePct > 0 ? "+" : ""}
-                  {variancePct.toFixed(1)}%)
-                </span>
+              {hydrated ? (
+                <>
+                  {fmtUSD(variance)} {variance > 0 ? "over" : variance < 0 ? "under" : ""} midpoint
+                  {variance !== 0 && (
+                    <span className="ml-2 text-steel-400">
+                      ({variancePct > 0 ? "+" : ""}
+                      {variancePct.toFixed(1)}%)
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span className="text-steel-400">calculating…</span>
               )}
             </span>
           </div>
@@ -158,7 +175,7 @@ export default function Overview({ data }: { data: DashboardData }) {
               className="absolute inset-y-0 left-0 h-full rounded-full bg-gradient-to-r from-moss-500/40 via-steel-500/30 to-amber-500/40"
             />
             {/* Actual pivot marker */}
-            {mid > 0 && totals.actualTotal > 0 && (
+            {hydrated && mid > 0 && totals.actualTotal > 0 && (
               <motion.div
                 initial={{ left: "50%", scale: 0 }}
                 animate={{
@@ -173,8 +190,8 @@ export default function Overview({ data }: { data: DashboardData }) {
             )}
           </div>
           <div className="mt-1 flex justify-between text-[10px] text-steel-500">
-            <span>{fmtUSD(totals.filledLow)}</span>
-            <span>{fmtUSD(totals.filledHigh)}</span>
+            <span>{hydrated ? fmtUSD(totals.filledLow) : SKELETON}</span>
+            <span>{hydrated ? fmtUSD(totals.filledHigh) : SKELETON}</span>
           </div>
         </div>
       </motion.div>
@@ -189,7 +206,7 @@ export default function Overview({ data }: { data: DashboardData }) {
         <div className="mb-1 text-xs uppercase tracking-wide text-steel-400">Overall progress</div>
         <div className="mb-3 flex items-baseline gap-2">
           <div className="text-3xl font-semibold">
-            <AnimatedNumber value={overallDone} format={(n) => `${Math.round(n)}/${overallTotal}`} />
+            {hydrated ? <AnimatedNumber value={overallDone} format={(n) => `${Math.round(n)}/${overallTotal}`} /> : SKELETON}
           </div>
           <div className="text-sm text-steel-400">tasks done</div>
         </div>

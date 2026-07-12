@@ -348,11 +348,13 @@ const NewCostForm = ({
 
 export default function Costs({
   data,
+  hydrated,
   updateCost,
   addCost,
   deleteCost,
 }: {
   data: DashboardData;
+  hydrated: boolean;
   updateCost: (id: string, patch: Partial<CostLine>) => void;
   addCost: (row: Omit<CostLine, "id">) => void;
   deleteCost: (id: string) => void;
@@ -387,6 +389,14 @@ export default function Costs({
   }, [filtered]);
 
   const editingRow = editingId ? data.costs.find((c) => c.id === editingId) || null : null;
+
+  if (!hydrated) {
+    return (
+      <div className="card-soft flex h-64 items-center justify-center rounded-2xl text-sm text-steel-400">
+        Loading dashboard…
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -472,7 +482,7 @@ export default function Costs({
                 <tbody>
                   {rows.map((r, ri) => {
                     const isTBD = r.status === "Open" || r.status === "Leave blank per Ry";
-                    const overshoot = typeof r.actualAmount === "number" && r.highTotal && r.actualAmount > r.highTotal;
+                    const overshoot = typeof r.actualAmount === "number" && typeof r.highTotal === "number" && r.actualAmount > r.highTotal;
                     return (
                       <motion.tr
                         key={r.id}
@@ -620,8 +630,14 @@ const Stat = ({ label, value, tone }: { label: string; value: string; tone: "mos
 };
 
 const CategorySubtotal = ({ rows }: { rows: CostLine[] }) => {
-  const lo = rows.reduce((s, r) => (r.lowTotal ? s + r.lowTotal : s), 0);
-  const hi = rows.reduce((s, r) => (r.highTotal ? s + r.highTotal : s), 0);
+  const lo = rows.reduce(
+    (s, r) => (typeof r.lowTotal === "number" ? s + r.lowTotal : s),
+    0
+  );
+  const hi = rows.reduce(
+    (s, r) => (typeof r.highTotal === "number" ? s + r.highTotal : s),
+    0
+  );
   if (!lo && !hi) return <span className="text-xs text-steel-500">no estimate</span>;
   return (
     <div className="text-xs text-steel-300">

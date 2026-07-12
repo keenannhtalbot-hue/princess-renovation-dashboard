@@ -14,6 +14,8 @@ import {
   Link as LinkIcon,
   RotateCcw,
   Sparkles,
+  AlertCircle,
+  X,
 } from "lucide-react";
 
 const TABS: { key: TabKey; label: string; hint: string }[] = [
@@ -25,33 +27,6 @@ const TABS: { key: TabKey; label: string; hint: string }[] = [
 export default function Page() {
   const dash = useDashboardData();
   const [tab, setTab] = useState<TabKey>("overview");
-  const [importErr, setImportErr] = useState<string | null>(null);
-
-  const onImport = async (file: File) => {
-    setImportErr(null);
-    const text = await file.text();
-    try {
-      const parsed = JSON.parse(text);
-      if (
-        parsed &&
-        Array.isArray(parsed.costs) &&
-        Array.isArray(parsed.todos) &&
-        parsed.meta
-      ) {
-        // apply via the hook by writing into localStorage and reloading
-        window.localStorage.setItem(
-          "princess-renovation-dashboard-v1",
-          JSON.stringify(parsed)
-        );
-        window.location.hash = "";
-        window.location.reload();
-      } else {
-        setImportErr("That JSON doesn't match the dashboard shape.");
-      }
-    } catch {
-      setImportErr("Couldn't parse that file as JSON.");
-    }
-  };
 
   return (
     <main className="mx-auto max-w-7xl px-4 pb-24 pt-8 sm:px-6 lg:px-10">
@@ -60,6 +35,28 @@ export default function Page() {
         address={dash.data.meta.address}
         lastUpdated={dash.data.meta.lastUpdated}
       />
+
+      <AnimatePresence>
+        {dash.shareParseError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="mt-4 flex items-start gap-3 rounded-xl border border-amber-400/40 bg-amber-500/10 p-3 text-sm text-amber-200"
+            role="alert"
+          >
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-none" />
+            <span className="flex-1">{dash.shareParseError}</span>
+            <button
+              onClick={() => dash.dismissShareError()}
+              className="rounded-md p-1 text-amber-200 hover:bg-white/5"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="mt-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
         <TabBar tabs={TABS} value={tab} onChange={setTab} />
@@ -84,7 +81,8 @@ export default function Page() {
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) onImport(f);
+                if (f) dash.importJSONFromFile(f);
+                e.target.value = "";
               }}
             />
           </label>
@@ -113,7 +111,7 @@ export default function Page() {
             transition={{ duration: 0.35 }}
             className="mt-6"
           >
-            <Overview data={dash.data} />
+            <Overview data={dash.data} hydrated={dash.hydrated} />
           </motion.section>
         )}
         {tab === "costs" && (
@@ -125,7 +123,13 @@ export default function Page() {
             transition={{ duration: 0.35 }}
             className="mt-6"
           >
-            <Costs data={dash.data} updateCost={dash.updateCost} addCost={dash.addCost} deleteCost={dash.deleteCost} />
+            <Costs
+              data={dash.data}
+              hydrated={dash.hydrated}
+              updateCost={dash.updateCost}
+              addCost={dash.addCost}
+              deleteCost={dash.deleteCost}
+            />
           </motion.section>
         )}
         {tab === "todos" && (
@@ -139,6 +143,7 @@ export default function Page() {
           >
             <Todos
               data={dash.data}
+              hydrated={dash.hydrated}
               updateTodo={dash.updateTodo}
               addTodo={dash.addTodo}
               deleteTodo={dash.deleteTodo}
@@ -153,7 +158,6 @@ export default function Page() {
           <Sparkles className="h-3.5 w-3.5 text-amber-400" />
           Built by Forge · data syncs to this browser
         </div>
-        <div>{importErr && <span className="text-rust-400">{importErr}</span>}</div>
       </footer>
     </main>
   );

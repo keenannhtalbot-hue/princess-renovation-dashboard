@@ -359,12 +359,14 @@ const AddTodoPopover = ({
 
 export default function Todos({
   data,
+  hydrated,
   updateTodo,
   addTodo,
   deleteTodo,
   cycleStatus,
 }: {
   data: DashboardData;
+  hydrated: boolean;
   updateTodo: (id: string, patch: Partial<TodoLine>) => void;
   addTodo: (row: Omit<TodoLine, "id">) => void;
   deleteTodo: (id: string) => void;
@@ -411,6 +413,14 @@ export default function Todos({
     data.todos.forEach((t) => (c[t.status] += 1));
     return c;
   }, [data.todos]);
+
+  if (!hydrated) {
+    return (
+      <div className="card-soft flex h-64 items-center justify-center rounded-2xl text-sm text-steel-400">
+        Loading dashboard…
+      </div>
+    );
+  }
 
   return (
     <div>
