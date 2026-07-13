@@ -83,3 +83,49 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(6px);
 }
+
+/* ===== iOS Safari hydration fallback ===== */
+/* If Framer Motion hydration fails (iOS Safari bug), these CSS animations
+   force everything visible after 1.5s so the user still sees the dashboard. */
+@keyframes princess-fade-in {
+  to { opacity: 1 !important; }
+}
+@keyframes princess-scale-in {
+  to { opacity: 1 !important; transform: scale(1) rotate(0) !important; }
+}
+@keyframes princess-slide-in {
+  to { opacity: 1 !important; transform: translateX(0) translateY(0) !important; }
+}
+@keyframes princess-scale-x {
+  to { transform: scaleX(1) !important; }
+}
+
+/* Catch-all: any element with inline opacity:0 gets force-faded in */
+main [style*="opacity:0"]:not([data-no-fallback]) {
+  animation: princess-fade-in 0.5s ease-out 1.5s forwards !important;
+}
+main [style*="transform:scaleX(0)"] {
+  animation: princess-scale-x 0.5s ease-out 1.5s forwards !important;
+}
+main [style*="transform:scale(0)"] {
+  animation: princess-scale-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 1.5s forwards !important;
+}
+main [style*="translateX(-10px)"] {
+  animation: princess-slide-in 0.5s ease-out 1.5s forwards !important;
+}
+main [style*="translateY(-16px)"] {
+  animation: princess-slide-in 0.5s ease-out 1.5s forwards !important;
+}
+main [style*="translateY(6px)"] {
+  animation: princess-slide-in 0.5s ease-out 1.5s forwards !important;
+}
+
+/* iOS viewport fix */
+html, body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
+}
+body {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
